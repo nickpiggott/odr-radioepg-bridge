@@ -60,13 +60,13 @@ def encode_image(url):
     logger.debug('read %d bytes of image data', len(data))
     if len(data) > 16000:
         logger.debug('WARN: image size is excessive (greater than 16kBytes)')
-	image = Image.open(BytesIO(data))
-	image = image.convert("P", palette=Image.ADAPTIVE)
-	compressed = image.save("/tmp/compressed.png", optimize=True)
-	temp = open('/tmp/compressed.png','r')
-	data = temp.read()
-	temp.close()
-        logger.debug('re-sized to %d bytes of image data', len(data))
+    image = Image.open(BytesIO(data))
+    image = image.convert("P", palette=Image.ADAPTIVE)
+    compressed = image.save("/tmp/compressed.png", optimize=True)
+    temp = open('/tmp/compressed.png','r')
+    data = temp.read()
+    temp.close()
+    logger.debug('re-sized to %d bytes of image data', len(data))
 	
     return data
 
