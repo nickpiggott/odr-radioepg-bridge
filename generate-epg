@@ -22,6 +22,7 @@ from json import dumps, JSONEncoder
 import random
 import string
 import re
+import csv
 from pprint import pprint
 
 from PIL import Image
@@ -40,9 +41,12 @@ def filter_by_bearer(service):
     bearers = [x for x in service.bearers if isinstance(x, (DabBearer))] # can include IP bearers if you like
     return service
 
-def get_services_for_bearers(bearers, url):
+def get_services_for_bearers(bearers, url, clientkey):
     logger.debug('getting services for bearers from %s : %s', url, bearers)
-    response = urllib.request.urlopen(url)
+    req = urllib.request.Request(url)
+    if clientkey:
+        req.add_header("Authorization", "ClientIdentifier " + clientkey)
+    response = urllib.request.urlopen(req)
     logger.debug('SI successfully opened')
     unmarshalled = xml.unmarshall(response.read().decode('utf-8'))
     logger.debug('SI successfuly unmarshalled')
@@ -82,6 +86,7 @@ parser.add_argument('-d', dest='days', type=int, default=2, help='number of days
 parser.add_argument('-p', dest='packet_size', type=int, default=96, help='Packet size in bytes')
 parser.add_argument('-a', dest='packet_address', type=int, default=1, help='Packet address')
 parser.add_argument('-D', dest='datagroup_output', action='store_true', help='output Datagroups instead of Packets')
+parser.add_argument('-c', dest='clientids', help='filename of CSV file of fqdn,ClientID key values')
 args = parser.parse_args()
 
 if args.debug:
@@ -93,6 +98,13 @@ logging.getLogger('spi.xml').setLevel(logging.DEBUG)
 # read in the mux config
 c = open(args.f[0]).read()
 
+# read in any fqdn / client IDs
+clientids = list()
+
+if args.clientids:
+    with open(args.clientids, newline='') as csvfile:
+        clientids = list(filter(None, csv.reader(csvfile)))
+        
 def calculate_scope(schedule): # this should probably be in the main codebase
     start = schedule.scope.start
     end = schedule.scope.end
@@ -142,17 +154,28 @@ class Generator:
             fqdn = response['fqdn']
             bearers = response['bearers']
             servers = response['servers']
+            app = response['app']
+            clientkey = ""
+            
+            # is there a client id for this fqdn
+            for clientid in clientids:
+                if (clientid[0] + ".") == fqdn:
+                    clientkey = clientid[1]
 
             # sort servers in priority (lowest), weighting highest
             servers = sorted(servers, key=lambda x: (-x['priority'], x['weight']))
 
             # acquire an SI file, starting with the lower priority
             for server in servers:
+                print(server)
                 domain = server['target'][:-1]
-                url = 'http://%s/radiodns/spi/3.1/SI.xml' % domain 
+                if app == "radiospi":
+                    url = 'https://%s/radiodns/spi/3.1/SI.xml' % domain 
+                else:
+                    url = 'http://%s/radiodns/spi/3.1/SI.xml' % domain 
                 logger.debug('getting SI document from %s', url)
                 try:
-                    services = get_services_for_bearers(bearers, url)
+                    services = get_services_for_bearers(bearers, url, clientkey)
                 except: continue # move onto the next SRV record
                 all_services.extend(services)
 
@@ -189,7 +212,7 @@ class Generator:
                         logger.debug('Media content type is %s', media.content)
                         name = "{service}_{count}_{width}_{height}.png".format(
                             service=service.get_name(ShortName.max_length).text.replace(" ", "_"),
-			    count=logo_count,
+			                   count=logo_count,
                             width=media.width,
                             height=media.height)
                         logo_count+=1
