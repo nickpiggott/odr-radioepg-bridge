@@ -43,10 +43,10 @@ def filter_by_bearer(service):
 
 def get_services_for_bearers(bearers, url, clientkey):
     logger.debug('getting services for bearers from %s : %s', url, bearers)
-    req = urlib.request(url)
-    if clientkey is not None:
+    req = urllib.request.Request(url)
+    if clientkey:
         req.add_header("Authorization", "ClientIdentifier " + clientkey)
-    response = req.urlopen(url)
+    response = urllib.request.urlopen(req)
     logger.debug('SI successfully opened')
     unmarshalled = xml.unmarshall(response.read().decode('utf-8'))
     logger.debug('SI successfuly unmarshalled')
@@ -154,11 +154,12 @@ class Generator:
             fqdn = response['fqdn']
             bearers = response['bearers']
             servers = response['servers']
+            app = response['app']
             clientkey = ""
             
             # is there a client id for this fqdn
             for clientid in clientids:
-                if clientid[0] == fqdn:
+                if (clientid[0] + ".") == fqdn:
                     clientkey = clientid[1]
 
             # sort servers in priority (lowest), weighting highest
@@ -166,8 +167,12 @@ class Generator:
 
             # acquire an SI file, starting with the lower priority
             for server in servers:
+                print(server)
                 domain = server['target'][:-1]
-                url = 'http://%s/radiodns/spi/3.1/SI.xml' % domain 
+                if app == "radiospi":
+                    url = 'https://%s/radiodns/spi/3.1/SI.xml' % domain 
+                else:
+                    url = 'http://%s/radiodns/spi/3.1/SI.xml' % domain 
                 logger.debug('getting SI document from %s', url)
                 try:
                     services = get_services_for_bearers(bearers, url, clientkey)
