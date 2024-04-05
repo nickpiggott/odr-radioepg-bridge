@@ -45,11 +45,20 @@ def get_services_for_bearers(bearers, url, clientkey):
     logger.debug('getting services for bearers from %s : %s', url, bearers)
     req = urllib.request.Request(url)
     if clientkey:
+        logger.debug("Client ID passed to %s", url)
         req.add_header("Authorization", "ClientIdentifier " + clientkey)
-    response = urllib.request.urlopen(req)
-    logger.debug('SI successfully opened')
-    unmarshalled = xml.unmarshall(response.read().decode('utf-8'))
-    logger.debug('SI successfuly unmarshalled')
+    try:
+        response = urllib.request.urlopen(req)
+        logger.debug('SI successfully opened')
+        unmarshalled = xml.unmarshall(response.read().decode('utf-8'))
+        logger.debug('SI successfuly unmarshalled')
+    except urllib.error.HTTPError as err:
+        if err.code == 404:
+            logger.debug('could not find SI file at: %s', url)
+        elif err.code == 401 or err.code == 500:
+        	   logger.exception('authorization failure accessing SI file at: %s', url)
+        else:
+            logger.exception('error accessing SI file at: %s', pi_url)
 
     services = list(filter(lambda s : len(list(filter(lambda b : b in bearers, s.bearers))) > 0, unmarshalled.services))
     logger.debug('number of services found %d', len(services))
@@ -167,7 +176,6 @@ class Generator:
 
             # acquire an SI file, starting with the lower priority
             for server in servers:
-                print(server)
                 domain = server['target'][:-1]
                 if app == "radiospi":
                     url = 'https://%s/radiodns/spi/3.1/SI.xml' % domain 
