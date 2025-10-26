@@ -356,7 +356,7 @@ class Generator:
                 w.write(datagroup.tobytes())
 
         else:
-            packets = encode_packets(datagroups, address=self.packet_address, size=self.packet_size)
+            packets = encode_packets(datagroups, address=self.packet_address, size=self.packet_size, padding=True)
             logger.debug('encoded to %d packets', len(packets))
 
             # open the output file
