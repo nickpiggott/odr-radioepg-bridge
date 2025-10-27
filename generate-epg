@@ -13,6 +13,7 @@ lowest sizes. Also the specified number of days of PI files. All these are then 
 
 """
 
+import tempfile
 import argparse
 import os, sys
 from datetime import datetime, timedelta
@@ -78,11 +79,14 @@ def encode_image(url):
         logger.debug('WARN: image size is excessive (greater than 5kBytes)')
         image = Image.open(BytesIO(data))
         image = image.convert("P", palette=Image.ADAPTIVE)
-        compressed = image.save("/tmp/compressed.png", optimize=True)
-        temp = open('/tmp/compressed.png','rb')
+        tf = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+        tempname = tf.name
+        tf.close()
+        compressed = image.save(tempname, optimize=True)
+        temp = open(tempname,'rb')
         data = temp.read()
         temp.close()
-        os.remove('/tmp/compressed.png')
+        os.remove(tempname)
         logger.debug('re-sized to %d bytes of image data', len(data))
     
     return data
