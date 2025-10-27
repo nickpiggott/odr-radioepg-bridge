@@ -342,7 +342,7 @@ class Generator:
         ensemble_shortlabel = ShortName(shortlabel)
         o = MotObject(filename, binary.marshall(service_info, ensemble=binary.Ensemble(ecc, eid, names=[ensemble_label,ensemble_shortlabel])).tobytes(), EpgContentType.SERVICE_INFORMATION)
         o.add_parameter(ScopeId(ecc, eid))
-        objects.append(o)
+        objects.insert(0, o)
 
         logger.debug('loaded into %d MOT objects', len(objects))
 
