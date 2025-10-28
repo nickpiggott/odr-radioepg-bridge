@@ -340,10 +340,11 @@ class Generator:
             # service_info.services.append(service)  
 
             # filter out non DAB bearers
-            # service.bearers = filter(lambda x: isinstance(x, DabBearer), service.bearers)
+            service.bearers = filter(lambda x: isinstance(x, DabBearer), service.bearers)
 
             # find only the bearer for this multiplex
-            service.bearers = filter(lambda x: isinstance(x, DabBearer) and x.ecc == ecc and x.eid == eid, service.bearers)
+            # service.bearers = filter(lambda x: isinstance(x, DabBearer) and x.ecc == ecc and x.eid == eid, service.bearers)
+
             service_info.services.append(service)  
 
         # add the SI file 
