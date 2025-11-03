@@ -37,6 +37,18 @@ from mot.epg import EpgContentType, ScopeId, ScopeStart, ScopeEnd
 from msc.datagroups import encode_directorymode
 from msc.packets import encode_packets
 
+def parse_mux_pkt_size_addr(filename, args_packet_size, args_packet_address):
+    from odr.radiodns.resolver import parse_mux_config
+    mux_packet_size = args_packet_size
+    mux_packet_address = args_packet_address
+    services = (parse_mux_config(filename))
+    for service in services:
+      if service["hasEPG"]:
+        mux_packet_size = service["EPGpacketSize"]
+        mux_packet_address = service["EPGpacketAddress"]
+        if mux_packet_size > 96:
+          mux_packet_size = mux_packet_size // 2
+    return mux_packet_size, mux_packet_address
 
 def filter_by_bearer(service):
     bearers = [x for x in service.bearers if isinstance(x, (DabBearer))] # can include IP bearers if you like
@@ -379,8 +391,10 @@ class Generator:
             for packet in packets:
                w.write(packet.tobytes())
 
+# get packet_size and packet_address from the mux config
+mux_packet_size, mux_packet_address = parse_mux_pkt_size_addr(args.f[0], args.packet_size, args.packet_address)
 # get the services and applications that the mux config suggests and construct a new virtual SI file
 from odr.radiodns.resolver import resolve_epg, parse_mux_ensemble
 ecc, eid, label, shortlabel = parse_mux_ensemble(args.f[0])
-generator = Generator(days=args.days, output=args.output, packet_size=args.packet_size, packet_address=args.packet_address, datagroup_output=args.datagroup_output,ecc=ecc,eid=eid,label=label,shortlabel=shortlabel)
+generator = Generator(days=args.days, output=args.output, packet_size=mux_packet_size, packet_address=mux_packet_address, datagroup_output=args.datagroup_output,ecc=ecc,eid=eid,label=label,shortlabel=shortlabel)
 resolved = resolve_epg(args.f[0], generator.generate_epg)
