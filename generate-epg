@@ -91,9 +91,15 @@ def encode_image(url, width, height):
     data = urllib.request.urlopen(req).read()
     logger.debug('read %d bytes of image data', len(data))
     image = Image.open(BytesIO(data))
+    dosave = False
+    if image.format != 'PNG':
+        logger.debug('WARN: image format is not PNG. Saving it as PNG.')
+        dosave = True
     if (image.width != width) or (image.height != height):
         logger.debug('WARN: image dimensions are incorrect (width:%d, height:%d)', image.width, image.height)
         image = image.resize(size=[width, height], resample=Image.BICUBIC)
+        dosave = True
+    if dosave:
         tf = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
         tempname = tf.name
         tf.close()
