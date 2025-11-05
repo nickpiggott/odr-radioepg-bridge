@@ -46,9 +46,10 @@ def parse_mux_pkt_size_addr(filename, args_packet_size, args_packet_address):
       if service["hasEPG"]:
         mux_packet_size = service["EPGpacketSize"]
         mux_packet_address = service["EPGpacketAddress"]
-        if mux_packet_size > 96:
-          mux_packet_size = mux_packet_size // 2
-    return mux_packet_size, mux_packet_address
+    mux_packet_bitrate = mux_packet_size // 3
+    if mux_packet_size > 96:
+      mux_packet_size = mux_packet_size // 2
+    return mux_packet_size, mux_packet_address, mux_packet_bitrate
 
 def filter_by_bearer(service):
     bearers = [x for x in service.bearers if isinstance(x, (DabBearer))] # can include IP bearers if you like
@@ -166,11 +167,12 @@ def calculate_scope(schedule): # this should probably be in the main codebase
 
 class Generator:
 
-    def __init__(self, days, output, packet_size, packet_address, datagroup_output, ecc, eid, label, shortlabel):
+    def __init__(self, days, output, packet_size, packet_address, packet_bitrate, datagroup_output, ecc, eid, label, shortlabel):
         self.days = days if days else 0
         self.output = output if output else 'output.dat'
         self.packet_size = packet_size
         self.packet_address = packet_address
+        self.packet_bitrate = packet_bitrate
         self.datagroup_output = datagroup_output
         self.ecc = ecc
         self.eid = eid
@@ -394,13 +396,27 @@ class Generator:
             # open the output file
             w = open(self.output, 'wb')
  
+            firstpkt = True
+            cyclesize = 0
+            packetssize = 0
             for packet in packets:
-               w.write(packet.tobytes())
+               pktbytes = packet.tobytes()
+               w.write(pktbytes)
+               if firstpkt:
+                  firstbytes = pktbytes[0:4]
+                  firstpkt = False
+               elif not firstpkt and (cyclesize == 0) and ((firstbytes[0] & 0xCF) == (pktbytes[0] & 0xCF)) and (firstbytes[1] == pktbytes[1]) and (firstbytes[2] == pktbytes[2]) and (firstbytes[3] == pktbytes[3]):
+                 cyclesize = packetssize
+               packetssize += len(pktbytes)
+            if cyclesize == 0:
+               cyclesize = packetssize
+
+            logger.debug('expected SPI cycle time: %d seconds', round(cyclesize * 8 / self.packet_bitrate / 1000))
 
 # get packet_size and packet_address from the mux config
-mux_packet_size, mux_packet_address = parse_mux_pkt_size_addr(args.f[0], args.packet_size, args.packet_address)
+mux_packet_size, mux_packet_address, mux_packet_bitrate = parse_mux_pkt_size_addr(args.f[0], args.packet_size, args.packet_address)
 # get the services and applications that the mux config suggests and construct a new virtual SI file
 from odr.radiodns.resolver import resolve_epg, parse_mux_ensemble
 ecc, eid, label, shortlabel = parse_mux_ensemble(args.f[0])
-generator = Generator(days=args.days, output=args.output, packet_size=mux_packet_size, packet_address=mux_packet_address, datagroup_output=args.datagroup_output,ecc=ecc,eid=eid,label=label,shortlabel=shortlabel)
+generator = Generator(days=args.days, output=args.output, packet_size=mux_packet_size, packet_address=mux_packet_address, packet_bitrate=mux_packet_bitrate, datagroup_output=args.datagroup_output,ecc=ecc,eid=eid,label=label,shortlabel=shortlabel)
 resolved = resolve_epg(args.f[0], generator.generate_epg)
