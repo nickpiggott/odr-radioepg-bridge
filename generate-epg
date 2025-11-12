@@ -311,7 +311,8 @@ class Generator:
                                    logger.debug('could not find PI file at: %s', pi_url)
                                else:
                                    logger.exception('error finding PI file at: %s', pi_url)
-
+                           except:
+                                   logger.exception('PI file at: %s is malformed', pi_url)
                      
         # prepare the SI file
         filename = '%s_%02x.%04x_SI.xml' % (now.strftime("%Y%m%d"),ecc,eid)
